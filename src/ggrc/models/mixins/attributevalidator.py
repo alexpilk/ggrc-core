@@ -69,7 +69,11 @@ class AttributeValidator(object):
   @classmethod
   def _get_global_cad_names(cls, definition_type):
     """Get names of global cad for a given object"""
-    cad = ggrc.models.custom_attribute_definition
+    model = ggrc.models.get_model(definition_type)
+    if issubclass(model, ggrc.models.mixins.ExternalCustomAttributable):
+      cad = ggrc.models.all_models.ExternalCustomAttributeDefinition
+    else:
+      cad = ggrc.models.all_models.CustomAttributeDefinition
     definition_types = [definition_type]
     if definition_type == "assessment_template":
       definition_types.append("assessment")
@@ -78,11 +82,11 @@ class AttributeValidator(object):
       flask.g.global_cad_names = collections.defaultdict(set)
     if definition_type not in flask.g.global_cad_names:
       query = db.session.query(
-          cad.CustomAttributeDefinition.title,
-          cad.CustomAttributeDefinition.id,
+          cad.title,
+          cad.id,
       ).filter(
-          cad.CustomAttributeDefinition.definition_type.in_(definition_types),
-          cad.CustomAttributeDefinition.definition_id.is_(None),
+          cad.definition_type.in_(definition_types),
+          cad.definition_id.is_(None),
       )
 
       flask.g.global_cad_names[definition_type] = {
@@ -94,7 +98,7 @@ class AttributeValidator(object):
   @classmethod
   def _get_global_ecad_names(cls, definition_type):
     """Get names of external cad for a given object"""
-    ecad = ggrc.models.ExternalCustomAttributeDefinition
+    ecad = ggrc.models.all_models.ExternalCustomAttributeDefinition
     if not getattr(flask.g, "global_ecad_names", set()):
       query = db.session.query(ecad.title, ecad.id).filter(
           ecad.definition_type == definition_type

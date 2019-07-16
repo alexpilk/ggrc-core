@@ -134,6 +134,12 @@ class ColumnHandler(object):
     pass
 
 
+class SlugColumnHandler(ColumnHandler):
+  """Column handler for slug. It can't be changed via import"""
+  def set_obj_attr(self):
+    pass
+
+
 class DeleteColumnHandler(ColumnHandler):
   """Column handler for deleting objects."""
 

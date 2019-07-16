@@ -476,9 +476,9 @@ class Slugged(Base):
   _aliases = {
       "slug": {
           "display_name": "Code",
-          "description": ("Must be unique. Can be left empty for "
-                          "auto generation. If updating or deleting, "
-                          "code is required"),
+          "description": ("Must be unique. Left it empty when creating a new "
+                          "object. The code is required when updating or "
+                          "deleting an existing object"),
       }
   }
 

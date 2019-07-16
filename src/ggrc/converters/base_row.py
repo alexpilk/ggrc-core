@@ -254,6 +254,9 @@ class ImportRowConverter(RowConverter):
     if value:
       obj = self.find_by_key(key, value)
 
+    if value and not obj:
+      self.add_warning(errors.IMPORT_NEW_WITH_SLUG)
+
     if not value or not obj:
       # We assume that 'get_importables()' returned value contains
       # names of the objects that cannot be created via import but

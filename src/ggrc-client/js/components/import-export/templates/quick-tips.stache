@@ -39,6 +39,10 @@
           Type a code of an object that you would like to map to
           into map column.
         </li>
+        <li>
+          Creating a new object and mapping of this object should be performed
+          in two different Import operations
+        </li>
       </ul>
     </li>
     <li>You can unmap objects:

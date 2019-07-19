@@ -767,6 +767,7 @@ class WithNetworkZone(object):
 
   @classmethod
   def eager_query(cls, **kwargs):
+    """Eager query."""
     query = super(WithNetworkZone, cls).eager_query(**kwargs)
     return query.options(
         orm.joinedload(
@@ -778,6 +779,7 @@ class WithNetworkZone(object):
 
   @classmethod
   def indexed_query(cls):
+    """Indexed query."""
     query = super(WithNetworkZone, cls).indexed_query()
     return query.options(
         orm.joinedload(

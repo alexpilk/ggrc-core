@@ -253,9 +253,12 @@ class ImportRowConverter(RowConverter):
 
     if value:
       obj = self.find_by_key(key, value)
-
-    if value and not obj:
-      self.add_warning(errors.IMPORT_NEW_WITH_SLUG)
+    if key == "slug" and value and not obj:
+      self.add_warning(
+          errors.IMPORT_NEW_WITH_SLUG,
+          code=value,
+          object_type=self.block_converter.class_name,
+      )
 
     if not value or not obj:
       # We assume that 'get_importables()' returned value contains

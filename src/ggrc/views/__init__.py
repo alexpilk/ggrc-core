@@ -77,9 +77,14 @@ def reindex_snapshots(_):
 
 @app.route("/_background_tasks/reindex", methods=["POST"])
 @background_task.queued_task
-def reindex(_):
+def reindex(task):
   """Web hook to update the full text search index."""
-  do_reindex()
+  objects_to_reindex = set(task.parameters.get("objects_to_reindex"))
+  if objects_to_reindex:
+    indexed_models = collect_selected_models_for_reindex(objects_to_reindex)
+  else:
+    indexed_models = collect_all_models_for_reindex()
+  do_reindex(indexed_models)
   return app.make_response(("success", 200, [("Content-Type", "text/html")]))
 
 
@@ -446,6 +451,32 @@ def generate_wf_tasks_notifications(_):
   common.generate_cycle_tasks_notifs()
   return app.make_response(("success", 200, [("Content-Type", "text/html")]))
 
+def can_be_reindexed(model):
+  """Checks if a model can be reindexed."""
+  return issubclass(model, mixin.Indexed) and model.REQUIRED_GLOBAL_REINDEX
+
+
+def collect_all_models_for_reindex():
+  """Returns all models that can be reindexed."""
+  return {
+    model.__name__: model for model in models.all_models.all_models if can_be_reindexed(model)
+  }
+
+
+def collect_selected_models_for_reindex(objects_to_reindex):
+  """Filters models for reindex by names."""
+  models_to_reindex = {
+    model.__name__: model for model in models.all_models.all_models
+    if model.__name__ in objects_to_reindex and can_be_reindexed(model)
+  }
+
+  unsupported_models = objects_to_reindex.difference(models_to_reindex)
+  if unsupported_models:
+    raise exceptions.BadRequest(
+      'Models "{}" either do not exist or cannot be reindexed'.format(', '.join(unsupported_models))
+    )
+
+  return models_to_reindex
 
 def _remove_dead_reindex_objects(indexed_models):
   """Remove fulltext record entries for deleted objects.
@@ -462,16 +493,10 @@ def _remove_dead_reindex_objects(indexed_models):
           ~record.key.in_(db.session.query(model.id))
       ).delete(synchronize_session='fetch')
 
-
 @helpers.without_sqlalchemy_cache
-def do_reindex(with_reindex_snapshots=False, delete=False):
+def do_reindex(indexed_models, with_reindex_snapshots=False, delete=False):
   """Update the full text search index."""
-
   indexer = fulltext.get_indexer()
-  indexed_models = {
-      m.__name__: m for m in models.all_models.all_models
-      if issubclass(m, mixin.Indexed) and m.REQUIRED_GLOBAL_REINDEX
-  }
   people_query = db.session.query(
       models.all_models.Person.id,
       models.all_models.Person.name,
@@ -512,8 +537,8 @@ def do_reindex(with_reindex_snapshots=False, delete=False):
 @helpers.without_sqlalchemy_cache
 def do_full_reindex():
   """Update the full text search index for all models."""
-
-  do_reindex(with_reindex_snapshots=True)
+  indexed_models = collect_all_models_for_reindex()
+  do_reindex(indexed_models, with_reindex_snapshots=True)
   start_compute_attributes(revision_ids="all_latest")
 
 
@@ -797,10 +822,15 @@ def admin_reindex_snapshots():
 def admin_reindex():
   """Calls a webhook that reindexes indexable objects
   """
+  objects_to_reindex = flask.request.get_json().get("objects", []) if flask.request.data else []
+
   bg_task = background_task.create_task(
       name="reindex",
       url=flask.url_for(reindex.__name__),
       queued_callback=reindex,
+      parameters={
+        'objects_to_reindex': objects_to_reindex
+      }
   )
   db.session.commit()
   return bg_task.make_response(
